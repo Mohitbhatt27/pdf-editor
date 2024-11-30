@@ -1,13 +1,12 @@
 import { useState } from "react";
 
-const PdfUploader = () => {
-  const [pdfFile, setPdfFile] = useState(null);
+const PdfUploader = ({ setPdfFile }) => {
   const [error, setError] = useState("");
 
   const handleOnFileChange = (e) => {
     const file = e.target.files[0];
     if (file.type == "application/pdf") {
-      setPdfFile(file);
+      setPdfFile(URL.createObjectURL(file));
       setError("");
     } else {
       setPdfFile(null);
@@ -25,12 +24,6 @@ const PdfUploader = () => {
         className="mb-2 p-2 border border-gray-300 rounded"
       />
       {error && <p className="text-red-400">{error}</p>}
-      {pdfFile && (
-        <div>
-          <p className="text-gray-600">File name: {pdfFile.name}</p>
-          <p className="text-gray-600">File size: {pdfFile.size} bytes</p>
-        </div>
-      )}
     </div>
   );
 };

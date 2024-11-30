@@ -1,12 +1,15 @@
-import "./App.css";
+import { useState } from "react";
+
 import PdfUploader from "./components/PdfUploader";
+import PdfViewer from "./components/PdfViewer";
 
 function App() {
+  const [pdfFile, setPdfFile] = useState(null);
   return (
-    <>
-      <h1 className="text-3xl font-bold underline text-red-300"></h1>
-      <PdfUploader />
-    </>
+    <div className="p-4 m-2">
+      <PdfUploader setPdfFile={setPdfFile} />
+      {pdfFile && <PdfViewer pdfFile={pdfFile} />}
+    </div>
   );
 }
 
