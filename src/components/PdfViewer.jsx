@@ -10,6 +10,7 @@ const PdfViewer = ({ pdfFile }) => {
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
+    setPageNumber(1);
   };
 
   return (
