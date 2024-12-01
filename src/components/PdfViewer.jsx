@@ -91,7 +91,8 @@ const PdfViewer = ({ pdfFile }) => {
     const width = x - startX;
     const height = y - startY;
 
-    applyBlur(startX, startY, width, height);
+    if (activeMode == "blur") applyBlur(startX, startY, width, height);
+    else if (activeMode == "erase") eraseText(startX, startY, width, height);
 
     setIsDrawing(false);
     setStartPosition(null);
@@ -132,6 +133,29 @@ const PdfViewer = ({ pdfFile }) => {
     pdfContext.restore();
   };
 
+  const eraseText = (x, y, width, height) => {
+    const pdfPage = pdfPageRef.current;
+    const pdfCanvas = pdfPage.querySelector("canvas");
+    const overlayCanvas = overlayCanvasRef.current;
+    const pdfContext = pdfCanvas.getContext("2d");
+
+    // transform coordinates to match the resolution of the PDF canvas
+    const scaleX = pdfCanvas.width / overlayCanvas.width;
+    const scaleY = pdfCanvas.height / overlayCanvas.height;
+
+    const adjustedX = Math.min(x, x + width) * scaleX;
+    const adjustedY = Math.min(y, y + height) * scaleY;
+    const adjustedWidth = Math.abs(width) * scaleX;
+    const adjustedHeight = Math.abs(height) * scaleY;
+
+    pdfContext.save();
+    pdfContext.fillStyle = "white";
+
+    pdfContext.fillRect(adjustedX, adjustedY, adjustedWidth, adjustedHeight);
+
+    pdfContext.restore();
+  };
+
   return (
     <div className="p-4 flex flex-col items-center relative">
       <h1 className="text-xl font-bold mb-4">PDF Viewer</h1>
@@ -139,7 +163,7 @@ const PdfViewer = ({ pdfFile }) => {
         <button
           onClick={() => setActiveMode("blur")}
           className={`px-4 py-2 ${
-            activeMode === "blur" ? "bg-blue-500 text-white" : "bg-gray-300"
+            activeMode == "blur" ? "bg-blue-500 text-white" : "bg-gray-300"
           } rounded`}
         >
           Blur
@@ -147,7 +171,7 @@ const PdfViewer = ({ pdfFile }) => {
         <button
           onClick={() => setActiveMode("erase")}
           className={`px-4 py-2 ${
-            activeMode === "erase" ? "bg-blue-500 text-white" : "bg-gray-300"
+            activeMode == "erase" ? "bg-blue-500 text-white" : "bg-gray-300"
           } rounded`}
         >
           Erase
@@ -155,7 +179,7 @@ const PdfViewer = ({ pdfFile }) => {
         <button
           onClick={() => setActiveMode("addText")}
           className={`px-4 py-2 ${
-            activeMode === "addText" ? "bg-blue-500 text-white" : "bg-gray-300"
+            activeMode == "addText" ? "bg-blue-500 text-white" : "bg-gray-300"
           } rounded`}
         >
           Add Text
