@@ -11,6 +11,7 @@ const PdfViewer = ({ pdfFile }) => {
   const [pageNumber, setPageNumber] = useState(1);
   const [startPosition, setStartPosition] = useState(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [textBoxes, setTextBoxes] = useState([]); //position and content
   const overlayCanvasRef = useRef(null); // where user draws rectangle
   const pdfPageRef = useRef(null); // to calculate drawing coordinates
 
@@ -75,7 +76,13 @@ const PdfViewer = ({ pdfFile }) => {
     const y = e.clientY - rectangle.top;
 
     if (activeMode == "addText") {
-      console.log("Add text at:", { x, y });
+      const newTextBox = {
+        id: Date.now(),
+        x: x,
+        y: y,
+        text: "",
+      };
+      setTextBoxes([...textBoxes, newTextBox]);
       return;
     }
 
@@ -146,6 +153,32 @@ const PdfViewer = ({ pdfFile }) => {
               onRenderSuccess={handlePageRenderSuccess}
             />
           </Document>
+          {textBoxes.map((textBox) => (
+            <div
+              key={textBox.id}
+              contentEditable
+              suppressContentEditableWarning
+              style={{
+                position: "absolute",
+                left: textBox.x,
+                top: textBox.y,
+                border: "1px solid blue",
+                padding: "2px",
+                backgroundColor: "white",
+                zIndex: 20,
+              }}
+              onBlur={(e) => {
+                const updatedTextBoxes = textBoxes.map((box) =>
+                  box.id == textBox.id
+                    ? { ...box, text: e.target.innerText }
+                    : box
+                );
+                setTextBoxes(updatedTextBoxes);
+              }}
+            >
+              {textBox.text}
+            </div>
+          ))}
         </div>
         <canvas
           ref={overlayCanvasRef}
