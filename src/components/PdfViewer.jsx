@@ -76,13 +76,19 @@ const PdfViewer = ({ pdfFile }) => {
     const y = e.clientY - rectangle.top;
 
     if (activeMode == "addText") {
+      // removing any previously empty text boxes
+      const filteredTextBoxes = textBoxes.filter(
+        (box) => box.text.trim() != ""
+      );
+      setTextBoxes(filteredTextBoxes);
+      // adding new text box
       const newTextBox = {
         id: Date.now(),
         x: x,
         y: y,
         text: "",
       };
-      setTextBoxes([...textBoxes, newTextBox]);
+      setTextBoxes([...filteredTextBoxes, newTextBox]);
       return;
     }
 
@@ -163,6 +169,7 @@ const PdfViewer = ({ pdfFile }) => {
                 left: textBox.x,
                 top: textBox.y,
                 border: "1px solid blue",
+                minWidth: "50px",
                 padding: "2px",
                 backgroundColor: "white",
                 zIndex: 20,
