@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
@@ -8,17 +8,28 @@ const PdfViewer = ({ pdfFile }) => {
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
 
+  const overlayCanvasRef = useRef(null);
+
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
     setPageNumber(1);
   };
 
   return (
-    <div className="p-4 flex flex-col items-center">
+    <div className="p-4 flex flex-col items-center relative">
       <h1 className="text-xl font-bold mb-4">PDF Viewer</h1>
-      <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
-        <Page pageNumber={pageNumber} />
-      </Document>
+      <div className="relative">
+        <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
+          <Page pageNumber={pageNumber} />
+        </Document>
+        <canvas
+          ref={overlayCanvasRef}
+          className="absolute top-0 left-0"
+          width={500}
+          height={500}
+          style={{ pointerEvents: "auto", zIndex: 10 }}
+        />
+      </div>
       <div className="flex justify-center items-center gap-4 mt-4">
         <button
           onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
