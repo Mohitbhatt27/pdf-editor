@@ -11,9 +11,10 @@ const PdfViewer = ({ pdfFile }) => {
   const [pageNumber, setPageNumber] = useState(1);
   const [startPosition, setStartPosition] = useState(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [textBoxes, setTextBoxes] = useState([]); //position and content
-  const overlayCanvasRef = useRef(null); // where user draws rectangle
-  const pdfPageRef = useRef(null); // to calculate drawing coordinates
+  const [isDragging, setIsDragging] = useState(false);
+  const [textBoxes, setTextBoxes] = useState([]); // Tracks all text boxes
+  const overlayCanvasRef = useRef(null); // Canvas reference
+  const pdfPageRef = useRef(null); // PDF container reference
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -28,35 +29,71 @@ const PdfViewer = ({ pdfFile }) => {
     handlePageRenderSuccess();
   }, [pageNumber, numPages]);
 
+  const handleAddTextClick = () => {
+    setActiveMode("addText");
+    const newTextBox = {
+      id: Date.now(),
+      x: 150, // Default X position
+      y: 150, // Default Y position
+      text: "",
+      hasText: false,
+    };
+
+    setTextBoxes((prev) => [...prev, newTextBox]);
+  };
+
+  // Dragging Behavior for Text Boxes
+  const handleMouseDown = (e, id) => {
+    setIsDragging(id); // which text box is being dragged
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      const rectangle = pdfPageRef.current.getBoundingClientRect();
+      const mouseX = e.clientX - rectangle.left;
+      const mouseY = e.clientY - rectangle.top;
+
+      setTextBoxes((prev) =>
+        prev.map((box) =>
+          box.id == isDragging
+            ? { ...box, x: mouseX - 75, y: mouseY - 25 } // Update position
+            : box
+        )
+      );
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Blur and Erase Modes
   const startDrawing = (e) => {
-    // convert mouse coordinates to canvas coordinates
-    // store canvas coordinates in startPosition
     const canvas = overlayCanvasRef.current;
     const rectangle = canvas.getBoundingClientRect();
     const x = e.clientX - rectangle.left;
     const y = e.clientY - rectangle.top;
-    setStartPosition({ x, y });
-    setIsDrawing(true);
+
+    if (activeMode == "blur" || activeMode == "erase") {
+      setStartPosition({ x, y });
+      setIsDrawing(true);
+    }
   };
 
   const drawingRectangle = (e) => {
-    //continuously draw a dashed rectangle onMouseMove
-    if (!isDrawing) return;
-
-    const canvas = overlayCanvasRef.current;
-    const context = canvas.getContext("2d");
-    const rectangle = canvas.getBoundingClientRect();
-    const x = e.clientX - rectangle.left;
-    const y = e.clientY - rectangle.top;
-
-    // clear any existing rectangle
-    context.clearRect(0, 0, canvas.width, canvas.height);
     if (activeMode == "blur" || activeMode == "erase") {
+      if (!isDrawing) return;
+      const canvas = overlayCanvasRef.current;
+      const context = canvas.getContext("2d");
+      const rectangle = canvas.getBoundingClientRect();
+      const x = e.clientX - rectangle.left;
+      const y = e.clientY - rectangle.top;
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
       context.strokeStyle = "rgba(255, 0, 0, 0.5)";
       context.lineWidth = 2;
-      context.setLineDash([5, 5]); // dashed rectangle
+      context.setLineDash([5, 5]);
       context.beginPath();
-      // drawing rectangle
       context.rect(
         startPosition.x,
         startPosition.y,
@@ -68,64 +105,56 @@ const PdfViewer = ({ pdfFile }) => {
   };
 
   const finishDrawing = (e) => {
-    if (!isDrawing || !startPosition) return;
+    if (activeMode == "blur" || activeMode == "erase") {
+      if (!isDrawing || !startPosition) return;
 
-    const canvas = overlayCanvasRef.current;
-    const rectangle = canvas.getBoundingClientRect();
-    const x = e.clientX - rectangle.left;
-    const y = e.clientY - rectangle.top;
+      const canvas = overlayCanvasRef.current;
+      const rectangle = canvas.getBoundingClientRect();
+      const x = e.clientX - rectangle.left;
+      const y = e.clientY - rectangle.top;
+      const startX = startPosition.x;
+      const startY = startPosition.y;
+      const width = x - startX;
+      const height = y - startY;
 
-    if (activeMode == "addText") {
-      // removing any previously empty text boxes
-      const filteredTextBoxes = textBoxes.filter(
-        (box) => box.text.trim() != ""
-      );
-      setTextBoxes(filteredTextBoxes);
-      // adding new text box
-      const newTextBox = {
-        id: Date.now(),
-        x: x,
-        y: y,
-        text: "",
-      };
-      setTextBoxes([...filteredTextBoxes, newTextBox]);
-      return;
+      if (activeMode == "blur") {
+        applyBlur(
+          pdfPageRef.current.querySelector("canvas"),
+          canvas,
+          startX,
+          startY,
+          width,
+          height
+        );
+      } else if (activeMode == "erase") {
+        eraseText(
+          pdfPageRef.current.querySelector("canvas"),
+          canvas,
+          startX,
+          startY,
+          width,
+          height
+        );
+      }
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      setIsDrawing(false);
+      setStartPosition(null);
     }
-
-    const startX = startPosition.x;
-    const startY = startPosition.y;
-    const width = x - startX;
-    const height = y - startY;
-
-    if (activeMode == "blur")
-      applyBlur(
-        pdfPageRef.current.querySelector("canvas"),
-        canvas,
-        startX,
-        startY,
-        width,
-        height
-      );
-    else if (activeMode == "erase")
-      eraseText(
-        pdfPageRef.current.querySelector("canvas"),
-        canvas,
-        startX,
-        startY,
-        width,
-        height
-      );
-    // clear the rectangle drawn
-    const context = canvas.getContext("2d");
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    setIsDrawing(false);
-    setStartPosition(null);
   };
 
   return (
     <div className="p-4 flex flex-col items-center relative">
       <h1 className="text-xl font-bold mb-4">PDF Viewer</h1>
       <div className="flex justify-center gap-4 mb-4">
+        <button
+          onClick={handleAddTextClick}
+          className={`px-4 py-2 ${
+            activeMode == "addText" ? "bg-blue-500 text-white" : "bg-gray-300"
+          } rounded`}
+        >
+          Add Text
+        </button>
         <button
           onClick={() => setActiveMode("blur")}
           className={`px-4 py-2 ${
@@ -142,51 +171,19 @@ const PdfViewer = ({ pdfFile }) => {
         >
           Erase
         </button>
-        <button
-          onClick={() => setActiveMode("addText")}
-          className={`px-4 py-2 ${
-            activeMode == "addText" ? "bg-blue-500 text-white" : "bg-gray-300"
-          } rounded`}
-        >
-          Add Text
-        </button>
       </div>
-      <div className="relative">
-        <div className="relative" ref={pdfPageRef}>
-          <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
-            <Page
-              pageNumber={pageNumber}
-              onRenderSuccess={handlePageRenderSuccess}
-            />
-          </Document>
-          {textBoxes.map((textBox) => (
-            <div
-              key={textBox.id}
-              contentEditable
-              suppressContentEditableWarning
-              style={{
-                position: "absolute",
-                left: textBox.x,
-                top: textBox.y,
-                border: "1px solid blue",
-                minWidth: "50px",
-                padding: "2px",
-                backgroundColor: "white",
-                zIndex: 20,
-              }}
-              onBlur={(e) => {
-                const updatedTextBoxes = textBoxes.map((box) =>
-                  box.id == textBox.id
-                    ? { ...box, text: e.target.innerText }
-                    : box
-                );
-                setTextBoxes(updatedTextBoxes);
-              }}
-            >
-              {textBox.text}
-            </div>
-          ))}
-        </div>
+      <div
+        className="relative"
+        ref={pdfPageRef}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
+          <Page
+            pageNumber={pageNumber}
+            onRenderSuccess={handlePageRenderSuccess}
+          />
+        </Document>
         <canvas
           ref={overlayCanvasRef}
           className="absolute top-0 left-0"
@@ -195,6 +192,36 @@ const PdfViewer = ({ pdfFile }) => {
           onMouseMove={drawingRectangle}
           onMouseUp={finishDrawing}
         />
+        {textBoxes.map((textBox) => (
+          <div
+            key={textBox.id}
+            style={{
+              position: "absolute",
+              left: textBox.x,
+              top: textBox.y,
+              border: "1px dashed blue",
+              padding: "5px",
+              backgroundColor: "rgba(255, 255, 255, 0.8)",
+              cursor: "move",
+              zIndex: 20,
+            }}
+            contentEditable
+            suppressContentEditableWarning
+            onMouseDown={(e) => handleMouseDown(e, textBox.id)}
+            onBlur={(e) => {
+              const updatedText = e.target.innerText.trim();
+              setTextBoxes((prev) =>
+                prev.map((box) =>
+                  box.id == textBox.id
+                    ? { ...box, text: updatedText, hasText: true }
+                    : box
+                )
+              );
+            }}
+          >
+            {textBox.text}
+          </div>
+        ))}
       </div>
       <div className="flex justify-center items-center gap-4 mt-4">
         <button
