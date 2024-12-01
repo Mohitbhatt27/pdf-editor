@@ -9,8 +9,8 @@ const PdfViewer = ({ pdfFile }) => {
   const [pageNumber, setPageNumber] = useState(1);
   const [startPosition, setStartPosition] = useState(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const overlayCanvasRef = useRef(null);
-  const pdfPageRef = useRef(null);
+  const overlayCanvasRef = useRef(null); // where user draws rectangle
+  const pdfPageRef = useRef(null); // to calculate drawing coordinates
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -22,6 +22,7 @@ const PdfViewer = ({ pdfFile }) => {
   };
 
   const adjustCanvasSize = () => {
+    // Dynamically adjust canvas size to match currently rendered PDF page
     const canvas = overlayCanvasRef.current;
     const pdfPage = pdfPageRef.current;
 
@@ -39,6 +40,8 @@ const PdfViewer = ({ pdfFile }) => {
   }, [pageNumber, numPages]);
 
   const startDrawing = (e) => {
+    // convert mouse coordinates to canvas coordinates
+    // store canvas coordinates in startPosition
     const canvas = overlayCanvasRef.current;
     const rectangle = canvas.getBoundingClientRect();
     const x = e.clientX - rectangle.left;
@@ -48,6 +51,7 @@ const PdfViewer = ({ pdfFile }) => {
   };
 
   const drawingRectangle = (e) => {
+    //continuously draw a dashed rectangle onMouseMove
     if (!isDrawing) return;
 
     const canvas = overlayCanvasRef.current;
@@ -56,12 +60,14 @@ const PdfViewer = ({ pdfFile }) => {
     const x = e.clientX - rectangle.left;
     const y = e.clientY - rectangle.top;
 
+    // clear any existing rectangle
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     context.strokeStyle = "rgba(255, 0, 0, 0.5)";
     context.lineWidth = 2;
-    context.setLineDash([5, 5]);
+    context.setLineDash([5, 5]); // dashed rectangle
     context.beginPath();
+    // drawing rectangle
     context.rect(
       startPosition.x,
       startPosition.y,
@@ -71,10 +77,58 @@ const PdfViewer = ({ pdfFile }) => {
     context.stroke();
   };
 
-  const finishDrawing = () => {
-    if (!isDrawing) return;
+  const finishDrawing = (e) => {
+    if (!isDrawing || !startPosition) return;
+
+    const canvas = overlayCanvasRef.current;
+    const rectangle = canvas.getBoundingClientRect();
+    const x = e.clientX - rectangle.left;
+    const y = e.clientY - rectangle.top;
+
+    const startX = startPosition.x;
+    const startY = startPosition.y;
+    const width = x - startX;
+    const height = y - startY;
+
+    applyBlur(startX, startY, width, height);
+
     setIsDrawing(false);
     setStartPosition(null);
+  };
+
+  const applyBlur = (x, y, width, height) => {
+    const pdfPage = pdfPageRef.current;
+    const pdfCanvas = pdfPage.querySelector("canvas");
+    const overlayCanvas = overlayCanvasRef.current;
+    const pdfContext = pdfCanvas.getContext("2d");
+
+    // transform coordinates to match the resolution of the PDF canvas
+    const scaleX = pdfCanvas.width / overlayCanvas.width;
+    const scaleY = pdfCanvas.height / overlayCanvas.height;
+
+    const adjustedX = Math.min(x, x + width) * scaleX;
+    const adjustedY = Math.min(y, y + height) * scaleY;
+    const adjustedWidth = Math.abs(width) * scaleX;
+    const adjustedHeight = Math.abs(height) * scaleY;
+
+    pdfContext.save();
+    pdfContext.filter = "blur(3px)";
+
+    pdfContext.drawImage(
+      pdfCanvas,
+      adjustedX,
+      adjustedY,
+      adjustedWidth,
+      adjustedHeight,
+      adjustedX,
+      adjustedY,
+      adjustedWidth,
+      adjustedHeight
+    );
+
+    pdfContext.filter = "none";
+
+    pdfContext.restore();
   };
 
   return (
