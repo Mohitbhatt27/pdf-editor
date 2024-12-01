@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
+import { adjustCanvasSize, applyBlur, eraseText } from "../utils/canvas.utils";
 pdfjs.GlobalWorkerOptions.workerSrc = "../public/pdf.worker.min.mjs";
 
 const PdfViewer = ({ pdfFile }) => {
@@ -19,25 +20,11 @@ const PdfViewer = ({ pdfFile }) => {
   };
 
   const handlePageRenderSuccess = () => {
-    adjustCanvasSize();
-  };
-
-  const adjustCanvasSize = () => {
-    // Dynamically adjust canvas size to match currently rendered PDF page
-    const canvas = overlayCanvasRef.current;
-    const pdfPage = pdfPageRef.current;
-
-    if (canvas && pdfPage) {
-      const { width, height } = pdfPage.getBoundingClientRect();
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-    }
+    adjustCanvasSize(overlayCanvasRef.current, pdfPageRef.current);
   };
 
   useEffect(() => {
-    adjustCanvasSize();
+    handlePageRenderSuccess();
   }, [pageNumber, numPages]);
 
   const startDrawing = (e) => {
@@ -91,69 +78,29 @@ const PdfViewer = ({ pdfFile }) => {
     const width = x - startX;
     const height = y - startY;
 
-    if (activeMode == "blur") applyBlur(startX, startY, width, height);
-    else if (activeMode == "erase") eraseText(startX, startY, width, height);
-
+    if (activeMode == "blur")
+      applyBlur(
+        pdfPageRef.current.querySelector("canvas"),
+        canvas,
+        startX,
+        startY,
+        width,
+        height
+      );
+    else if (activeMode == "erase")
+      eraseText(
+        pdfPageRef.current.querySelector("canvas"),
+        canvas,
+        startX,
+        startY,
+        width,
+        height
+      );
+    // clear the rectangle drawn
+    const context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
     setIsDrawing(false);
     setStartPosition(null);
-  };
-
-  const applyBlur = (x, y, width, height) => {
-    const pdfPage = pdfPageRef.current;
-    const pdfCanvas = pdfPage.querySelector("canvas");
-    const overlayCanvas = overlayCanvasRef.current;
-    const pdfContext = pdfCanvas.getContext("2d");
-
-    // transform coordinates to match the resolution of the PDF canvas
-    const scaleX = pdfCanvas.width / overlayCanvas.width;
-    const scaleY = pdfCanvas.height / overlayCanvas.height;
-
-    const adjustedX = Math.min(x, x + width) * scaleX;
-    const adjustedY = Math.min(y, y + height) * scaleY;
-    const adjustedWidth = Math.abs(width) * scaleX;
-    const adjustedHeight = Math.abs(height) * scaleY;
-
-    pdfContext.save();
-    pdfContext.filter = "blur(3px)";
-
-    pdfContext.drawImage(
-      pdfCanvas,
-      adjustedX,
-      adjustedY,
-      adjustedWidth,
-      adjustedHeight,
-      adjustedX,
-      adjustedY,
-      adjustedWidth,
-      adjustedHeight
-    );
-
-    pdfContext.filter = "none";
-
-    pdfContext.restore();
-  };
-
-  const eraseText = (x, y, width, height) => {
-    const pdfPage = pdfPageRef.current;
-    const pdfCanvas = pdfPage.querySelector("canvas");
-    const overlayCanvas = overlayCanvasRef.current;
-    const pdfContext = pdfCanvas.getContext("2d");
-
-    // transform coordinates to match the resolution of the PDF canvas
-    const scaleX = pdfCanvas.width / overlayCanvas.width;
-    const scaleY = pdfCanvas.height / overlayCanvas.height;
-
-    const adjustedX = Math.min(x, x + width) * scaleX;
-    const adjustedY = Math.min(y, y + height) * scaleY;
-    const adjustedWidth = Math.abs(width) * scaleX;
-    const adjustedHeight = Math.abs(height) * scaleY;
-
-    pdfContext.save();
-    pdfContext.fillStyle = "white";
-
-    pdfContext.fillRect(adjustedX, adjustedY, adjustedWidth, adjustedHeight);
-
-    pdfContext.restore();
   };
 
   return (
