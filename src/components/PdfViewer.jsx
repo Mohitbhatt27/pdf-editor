@@ -50,19 +50,20 @@ const PdfViewer = ({ pdfFile }) => {
 
     // clear any existing rectangle
     context.clearRect(0, 0, canvas.width, canvas.height);
-
-    context.strokeStyle = "rgba(255, 0, 0, 0.5)";
-    context.lineWidth = 2;
-    context.setLineDash([5, 5]); // dashed rectangle
-    context.beginPath();
-    // drawing rectangle
-    context.rect(
-      startPosition.x,
-      startPosition.y,
-      x - startPosition.x,
-      y - startPosition.y
-    );
-    context.stroke();
+    if (activeMode == "blur" || activeMode == "erase") {
+      context.strokeStyle = "rgba(255, 0, 0, 0.5)";
+      context.lineWidth = 2;
+      context.setLineDash([5, 5]); // dashed rectangle
+      context.beginPath();
+      // drawing rectangle
+      context.rect(
+        startPosition.x,
+        startPosition.y,
+        x - startPosition.x,
+        y - startPosition.y
+      );
+      context.stroke();
+    }
   };
 
   const finishDrawing = (e) => {
@@ -72,6 +73,11 @@ const PdfViewer = ({ pdfFile }) => {
     const rectangle = canvas.getBoundingClientRect();
     const x = e.clientX - rectangle.left;
     const y = e.clientY - rectangle.top;
+
+    if (activeMode == "addText") {
+      console.log("Add text at:", { x, y });
+      return;
+    }
 
     const startX = startPosition.x;
     const startY = startPosition.y;
