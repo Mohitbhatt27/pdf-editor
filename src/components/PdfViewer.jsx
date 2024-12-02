@@ -4,7 +4,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import { adjustCanvasSize, applyBlur, eraseText } from "../utils/canvas.utils";
-pdfjs.GlobalWorkerOptions.workerSrc = "../public/pdf.worker.min.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 const PdfViewer = ({ pdfFile }) => {
   const [activeMode, setActiveMode] = useState(null); // Modes: "blur", "erase", "addText"
