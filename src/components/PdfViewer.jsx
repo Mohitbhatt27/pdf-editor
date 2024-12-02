@@ -16,13 +16,18 @@ const PdfViewer = ({ pdfFile }) => {
   const [textBoxes, setTextBoxes] = useState([]); // Tracks all text boxes
   const overlayCanvasRef = useRef(null); // Canvas reference
   const pdfPageRef = useRef(null); // PDF container reference
-  const [focusedId, setFocusedId] = useState(null);
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
 
     const canvas = pdfPageRef.current.querySelector("canvas");
     const canvasContext = canvas.getContext("2d");
+    const overlayCanvas = document.createElement("canvas");
+    overlayCanvas.width = canvas.width;
+    overlayCanvas.height = canvas.height;
+    const scaleX = canvas.width / overlayCanvas.width;
+    const scaleY = canvas.height / overlayCanvas.height;
+    doc.addImage(canvas, "JPEG", 0, 0, 210, 297);
     const canvasImageData = canvasContext.getImageData(
       0,
       0,
@@ -33,7 +38,10 @@ const PdfViewer = ({ pdfFile }) => {
 
     textBoxes.forEach((textBox) => {
       if (textBox.hasText) {
-        doc.text(textBox.text, textBox.x, textBox.y);
+        const adjustedX = textBox.x * scaleX;
+        const adjustedY = textBox.y * scaleY;
+
+        doc.text(textBox.text, adjustedX, adjustedY);
       }
     });
 
@@ -175,14 +183,6 @@ const PdfViewer = ({ pdfFile }) => {
       <h1 className="text-xl font-bold mb-4">PDF Viewer</h1>
       <div className="flex justify-center gap-4 mb-4">
         <button
-          onClick={handleAddTextClick}
-          className={`px-4 py-2 ${
-            activeMode == "addText" ? "bg-blue-500 text-white" : "bg-gray-300"
-          } rounded`}
-        >
-          Add Text
-        </button>
-        <button
           onClick={() => setActiveMode("blur")}
           className={`px-4 py-2 ${
             activeMode == "blur" ? "bg-blue-500 text-white" : "bg-gray-300"
@@ -197,6 +197,14 @@ const PdfViewer = ({ pdfFile }) => {
           } rounded`}
         >
           Erase
+        </button>
+        <button
+          onClick={handleAddTextClick}
+          className={`px-4 py-2 ${
+            activeMode == "addText" ? "bg-blue-500 text-white" : "bg-gray-300"
+          } rounded`}
+        >
+          Add Text
         </button>
         <button
           onClick={handleDownloadPDF}
@@ -234,16 +242,15 @@ const PdfViewer = ({ pdfFile }) => {
                 position: "absolute",
                 left: textBox.x,
                 top: textBox.y,
-                border: focusedId == textBox.id ? "1px dashed blue" : "none",
+                border: "1px dashed blue",
                 padding: "5px",
-                backgroundColor: "rgba(255, 255, 255, 0.8)",
+                backgroundColor: "white",
                 cursor: "move",
                 zIndex: 20,
               }}
               contentEditable
               suppressContentEditableWarning
               onMouseDown={(e) => handleMouseDown(e, textBox.id)}
-              onFocus={() => setFocusedId(textBox.id)}
               onBlur={(e) => {
                 const updatedText = e.target.innerText.trim();
                 setTextBoxes((prev) =>
