@@ -1,3 +1,4 @@
+import { jsPDF } from "jspdf";
 import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
@@ -15,6 +16,29 @@ const PdfViewer = ({ pdfFile }) => {
   const [textBoxes, setTextBoxes] = useState([]); // Tracks all text boxes
   const overlayCanvasRef = useRef(null); // Canvas reference
   const pdfPageRef = useRef(null); // PDF container reference
+  const [focusedId, setFocusedId] = useState(null);
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+
+    const canvas = pdfPageRef.current.querySelector("canvas");
+    const canvasContext = canvas.getContext("2d");
+    const canvasImageData = canvasContext.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+    doc.addImage(canvasImageData, "JPEG", 0, 0, 210, 297);
+
+    textBoxes.forEach((textBox) => {
+      if (textBox.hasText) {
+        doc.text(textBox.text, textBox.x, textBox.y);
+      }
+    });
+
+    doc.save("modified-pdf.pdf");
+  };
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -35,8 +59,11 @@ const PdfViewer = ({ pdfFile }) => {
       id: Date.now(),
       x: 150, // Default X position
       y: 150, // Default Y position
+      width: 100,
+      height: 50,
       text: "",
       hasText: false,
+      pageNumber,
     };
 
     setTextBoxes((prev) => [...prev, newTextBox]);
@@ -171,6 +198,12 @@ const PdfViewer = ({ pdfFile }) => {
         >
           Erase
         </button>
+        <button
+          onClick={handleDownloadPDF}
+          className="px-4 py-2 bg-blue-500 text-white rounded"
+        >
+          Download
+        </button>
       </div>
       <div
         className="relative"
@@ -192,36 +225,39 @@ const PdfViewer = ({ pdfFile }) => {
           onMouseMove={drawingRectangle}
           onMouseUp={finishDrawing}
         />
-        {textBoxes.map((textBox) => (
-          <div
-            key={textBox.id}
-            style={{
-              position: "absolute",
-              left: textBox.x,
-              top: textBox.y,
-              border: "1px dashed blue",
-              padding: "5px",
-              backgroundColor: "rgba(255, 255, 255, 0.8)",
-              cursor: "move",
-              zIndex: 20,
-            }}
-            contentEditable
-            suppressContentEditableWarning
-            onMouseDown={(e) => handleMouseDown(e, textBox.id)}
-            onBlur={(e) => {
-              const updatedText = e.target.innerText.trim();
-              setTextBoxes((prev) =>
-                prev.map((box) =>
-                  box.id == textBox.id
-                    ? { ...box, text: updatedText, hasText: true }
-                    : box
-                )
-              );
-            }}
-          >
-            {textBox.text}
-          </div>
-        ))}
+        {textBoxes
+          .filter((textBox) => textBox.pageNumber == pageNumber)
+          .map((textBox) => (
+            <div
+              key={textBox.id}
+              style={{
+                position: "absolute",
+                left: textBox.x,
+                top: textBox.y,
+                border: focusedId == textBox.id ? "1px dashed blue" : "none",
+                padding: "5px",
+                backgroundColor: "rgba(255, 255, 255, 0.8)",
+                cursor: "move",
+                zIndex: 20,
+              }}
+              contentEditable
+              suppressContentEditableWarning
+              onMouseDown={(e) => handleMouseDown(e, textBox.id)}
+              onFocus={() => setFocusedId(textBox.id)}
+              onBlur={(e) => {
+                const updatedText = e.target.innerText.trim();
+                setTextBoxes((prev) =>
+                  prev.map((box) =>
+                    box.id == textBox.id
+                      ? { ...box, text: updatedText, hasText: true }
+                      : box
+                  )
+                );
+              }}
+            >
+              {textBox.text}
+            </div>
+          ))}
       </div>
       <div className="flex justify-center items-center gap-4 mt-4">
         <button
